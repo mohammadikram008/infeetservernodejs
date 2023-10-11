@@ -1,12 +1,12 @@
 const bcrypt = require('bcrypt');
-
+const tokenExpiration = '1h'; 
 const Appartments = require("./models/Appartment");
 const Userpassword = require("./models/User");
 const Verification = require('./models/Verification');
 const User =require("./models/User")
 //for send forgot passsword to email 
 const nodemailer = require('nodemailer');
-
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
 const multer = require('multer'); // for handling file uploads
@@ -18,7 +18,8 @@ const cors = require("cors");
 const router = express.Router();
 app.use(express.json());
 app.use(cors());
-
+// Generate a random secret key
+const secretKey = crypto.randomBytes(32).toString('hex');
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -30,10 +31,19 @@ const transporter = nodemailer.createTransport({
   service: 'Gmail',
   auth: {
     user: 'mohammadikram20001@gmail.com', // Replace with your email address
-    pass: 'pakstar@123!', // Replace with your email password
+    pass: 'brez sqbk tbln nzfm', // Replace with your email password
   },
 });
 
+// Generate a reset token
+function generateResetToken(email) {
+  // Create a payload with the user's email
+  const payload = { email };
+
+  const token = jwt.sign({ email }, secretKey, { expiresIn: '1h' }); // Expires in 1 hour
+  return token;
+}
+// Example usage:
 
 
 
@@ -106,7 +116,7 @@ router.post('/signup', (req, res) => {
     res.status(200).json({ message: 'Signup successful' });
   })
       .catch((error) => {
-    // Handle the error
+    // Handle the error 
     res.status(500).json({ error: 'Error saving user to database' });
   });
   });
@@ -170,18 +180,23 @@ router.post('/login', (req, res) => {
 //  password change
 router.post('/password-change', async (req, res) => {
   const { userId, currentPassword, newPassword } = req.body;
-
-  try {
-    // Find the user by ID or email (replace with your logic)
-    const user = await Userpassword.findById(userId);
+ try {
+    // Find the user by ID (you should validate and sanitize the userId)
+    const user = await User.findById(userId);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     // Check if the current password matches the one in the database
-    if (!(await user.comparePassword(currentPassword))) {
+    const isPasswordMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isPasswordMatch) {
       return res.status(400).json({ message: 'Current password is incorrect' });
+    }
+
+    // Check if the new password and confirmation match
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({ message: 'New password and confirmation do not match' });
     }
 
     // Hash and save the new password
@@ -230,11 +245,15 @@ router.post('/profile', async (req, res) => {
 });
 
 //forgot password 
-app.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', async (req, res) => {
   try {
+    // console.log('Request Data:', req.body);
     const { email } = req.body;
+    const resetToken = generateResetToken(email);
+    const resetLink = `http://localhost:3000/reset-password?token=${resetToken}`;
 
     // Generate a unique reset token and save it in your database along with the user's email
+    // const resetLink = 'https://example.com/reset-password?token=your_reset_token';
 
     // Send a reset password email to the user
     const mailOptions = {
