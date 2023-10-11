@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const Appartments = require("./models/Appartment");
 const Userpassword = require("./models/User");
 const Verification = require('./models/Verification');
-
+const User =require("./models/User")
 //for send forgot passsword to email 
 const nodemailer = require('nodemailer');
 
@@ -29,8 +29,8 @@ app.use('/uploads', express.static('uploads'));
 const transporter = nodemailer.createTransport({
   service: 'Gmail',
   auth: {
-    user: 'your_email@gmail.com', // Replace with your email address
-    pass: 'your_email_password', // Replace with your email password
+    user: 'mohammadikram20001@gmail.com', // Replace with your email address
+    pass: 'pakstar@123!', // Replace with your email password
   },
 });
 
@@ -42,13 +42,13 @@ const myMiddleware = (req, res, next) => {
   // Middleware logic
   next(); // Call next() to pass control to the next middleware
 };
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
-});
+// const userSchema = new mongoose.Schema({
+//   username: { type: String, required: true, unique: true },
+//   password: { type: String, required: true },
+// });
 
 
-const User = mongoose.model('Infeet', userSchema);
+// const User = mongoose.model('Infeet', userSchema);
 router.get("/", async (req, res) => {
   try {
     const tasks = await Appartments.find();
@@ -91,24 +91,24 @@ router.post('/', upload.single('image'), async (req, res) => {
 // Signup route
 router.post('/signup', (req, res) => {
   // Extract user data from request body
-  const { username, password } = req.body;
+  const { username, email, password } = req.body;
 
-  // Hash the password
+    // Hash the password
   bcrypt.hash(password, 10, (err, hash) => {
     if (err) {
       return res.status(500).json({ error: 'Error hashing password' });
     }
 
     // Create a new user in the database
-    const user = new User({ username, password: hash });
+    const user = new User({ username,email, password: hash });
     user.save().then(() => {
       // Return a success message or perform further actions
-      res.status(200).json({ message: 'Signup successful' });
-    })
+    res.status(200).json({ message: 'Signup successful' });
+  })
       .catch((error) => {
-        // Handle the error
-        res.status(500).json({ error: 'Error saving user to database' });
-      });
+    // Handle the error
+    res.status(500).json({ error: 'Error saving user to database' });
+  });
   });
 
 });
@@ -116,7 +116,7 @@ router.post('/signup', (req, res) => {
 // Login route
 router.post('/login', (req, res) => {
   // Extract user data from request body
-  const { username, password } = req.body;
+  const { email, password } = req.body;
 
   // Find the user in the database
   // User.findOne({ username }, (err, user) => {
@@ -141,11 +141,11 @@ router.post('/login', (req, res) => {
   //     res.status(200).json({ token });
   //   });
   // });
-  User.findOne({ username })
+  User.findOne({ email })
     .exec()
     .then((user) => {
-      if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+   if (!user) {
+     return res.status(404).json({ error: 'User not found' });
       }
 
       // Compare the password
@@ -153,12 +153,12 @@ router.post('/login', (req, res) => {
         .then((result) => {
           if (!result) {
             return res.status(401).json({ error: 'Invalid password' });
-          }
-
-          // Generate a JWT token and send it as a response
-          const token = jwt.sign({ username: user.username }, 'secretkey');
-          res.status(200).json({ token });
-        });
+   }
+ 
+   // Generate a JWT token and send it as a response
+   const token = jwt.sign({ email: user.email }, 'secretkey');
+   res.status(200).json({ token });
+});
     })
     .catch((error) => {
       // Handle the error
@@ -210,7 +210,7 @@ router.post('/profile', async (req, res) => {
     } = req.body;
 
     // Create a new user document with the provided data
-    const user = new User({
+    const user = new Verification({
       legalName,
       fullAddress,
       idOrPassport,
@@ -239,7 +239,7 @@ app.post('/forgot-password', async (req, res) => {
     // Send a reset password email to the user
     const mailOptions = {
       to: email,
-      from: 'your_email@gmail.com', // Replace with your email address
+      from: 'mohammadikram20001@gmail.com', // Replace with your email address
       subject: 'Password Reset',
       html: `
         <p>You are receiving this email because you (or someone else) requested a password reset.</p>
@@ -256,8 +256,8 @@ app.post('/forgot-password', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
-});
+// app.listen(port, () => {
+//   console.log(`Server is running on port ${port}`);
+// });
 
 module.exports = router;
