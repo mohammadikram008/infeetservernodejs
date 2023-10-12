@@ -103,24 +103,33 @@ router.post('/signup', (req, res) => {
   // Extract user data from request body
   const { username, email, password } = req.body;
 
-    // Hash the password
-  bcrypt.hash(password, 10, (err, hash) => {
-    if (err) {
-      return res.status(500).json({ error: 'Error hashing password' });
-    }
+  // Check if a user with the same email already exists
+  User.findOne({ email })
+    .then((existingUser) => {
+      if (existingUser) {
+        return res.status(400).json({ error: 'User with this email already exists' });
+      }
 
-    // Create a new user in the database
-    const user = new User({ username,email, password: hash });
-    user.save().then(() => {
-      // Return a success message or perform further actions
-    res.status(200).json({ message: 'Signup successful' });
-  })
-      .catch((error) => {
-    // Handle the error 
-    res.status(500).json({ error: 'Error saving user to database' });
-  });
-  });
-
+      // Hash the password
+      bcrypt.hash(password, 10)
+        .then((hash) => {
+          // Create a new user in the database
+          const user = new User({ username, email, password: hash });
+          return user.save();
+        })
+        .then(() => {
+          // Return a success message or perform further actions
+          res.status(200).json({ message: 'Signup successful' });
+        })
+        .catch((error) => {
+          // Handle any errors during password hashing or saving to the database
+          res.status(500).json({ error: 'Error saving user to the database' });
+        });
+    })
+    .catch((error) => {
+      // Handle errors related to finding an existing user
+      res.status(500).json({ error: 'Error checking user existence' });
+    });
 });
 
 // Login route
@@ -179,24 +188,18 @@ router.post('/login', (req, res) => {
 
 //  password change
 router.post('/password-change', async (req, res) => {
-  const { userId, currentPassword, newPassword } = req.body;
+  const { email, currentPassword, newPassword } = req.body;
+  console.log("pass",req.body)
  try {
     // Find the user by ID (you should validate and sanitize the userId)
-    const user = await User.findById(userId);
-
+    const user = await User.findOne({email});
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
     // Check if the current password matches the one in the database
-    const isPasswordMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isPasswordMatch) {
+    if (!(await user.comparePassword(currentPassword))) {
       return res.status(400).json({ message: 'Current password is incorrect' });
-    }
-
-    // Check if the new password and confirmation match
-    if (newPassword !== confirmPassword) {
-      return res.status(400).json({ message: 'New password and confirmation do not match' });
     }
 
     // Hash and save the new password
