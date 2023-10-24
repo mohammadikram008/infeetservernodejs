@@ -1,6 +1,7 @@
 const bcrypt = require('bcrypt');
 const tokenExpiration = '1h'; 
 const Appartments = require("./models/Appartment");
+const Addtransaction = require("./models/Addtransaction");
 const Userpassword = require("./models/User");
 const Verification = require('./models/Verification');
 const User =require("./models/User")
@@ -72,9 +73,6 @@ router.get("/", async (req, res) => {
 
 router.post('/', upload.single('image'), async (req, res) => {
   const { appartmentaddres, price, area } = req.body;
-
-
-
   try {
     const newTask = new Appartments({
       appartmentaddres: req.body.appartmentaddres,
@@ -87,6 +85,40 @@ router.post('/', upload.single('image'), async (req, res) => {
   } catch (error) {
     console.error('Error creating task:', error);
     res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+// add transaction
+router.post('/addtransaction', upload.single('image'), async (req, res) => {
+  const { amount, account, comments,balance } = req.body;
+
+console.log("req",req.body)
+
+  try {
+    const newTask = new Addtransaction({
+      amount: req.body.amount,
+      account: req.body.account,
+      date:req.body.date,
+      comments: req.body.comments,
+      balance: req.body.balance,
+      image: req.file.path, // Save the image path in your schema
+    });
+    await newTask.save();
+    res.status(201).json({ message: 'Add Transaction  successfully.' });
+  } catch (error) {
+    console.error('Error creating task:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
+
+//get transaction
+router.get("/gettransaction", async (req, res) => {
+  try {
+    const tasks = await Addtransaction.find();
+    // res.send(tasks);
+    res.status(200).json(tasks);
+  } catch (error) {
+    res.send(error);
   }
 });
 // router.post("/", async (req, res) => {
