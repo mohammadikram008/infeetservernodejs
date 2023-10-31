@@ -1,10 +1,11 @@
 const bcrypt = require('bcrypt');
-const tokenExpiration = '1h'; 
+const tokenExpiration = '1h';
 const Appartments = require("./models/Appartment");
 const Addtransaction = require("./models/Addtransaction");
+const { Propertydetail, Transactiondetail, AlltransactionsSchema, Transactionforapprovement } = require('./models/property');
+const { User, Manager } = require("./models/User")
 const Userpassword = require("./models/User");
 const Verification = require('./models/Verification');
-const User =require("./models/User")
 //for send forgot passsword to email 
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
@@ -44,20 +45,82 @@ function generateResetToken(email) {
   const token = jwt.sign({ email }, secretKey, { expiresIn: '1h' }); // Expires in 1 hour
   return token;
 }
-// Example usage:
-
-
 
 
 const myMiddleware = (req, res, next) => {
   // Middleware logic
   next(); // Call next() to pass control to the next middleware
 };
-// const userSchema = new mongoose.Schema({
-//   username: { type: String, required: true, unique: true },
-//   password: { type: String, required: true },
-// });
 
+
+//add property detail
+router.post('/properties', upload.single('image'), async (req, res) => {
+  try {
+    const {
+      name,
+      address,
+      city,
+      country,
+      propertytype,
+      price
+    } = req.body;
+
+    // Create a new user document with the provided data
+    const properties = new Propertydetail({
+      name,
+      address,
+      city,
+      country,
+      propertytype,
+      price: req.body.price,
+      image: req.file.path,
+    });
+
+    // Save the user document to MongoDB
+    await properties.save();
+    res.status(201).json({ message: 'Property  saved successfully' });
+    // const propertyData = req.body;
+    // const property = await Property.create(propertyData);
+    // await property.save();
+    // res.status(201).json(property); 
+  } catch (error) {
+    console.error('Error creating property:', error);
+    res.status(500).json({ error: 'Could not create property' });
+  }
+});
+//get property
+router.get("/properties", async (req, res) => {
+  try {
+    const Property = await Propertydetail.find();
+    // res.send(tasks);
+    res.status(200).json(Property);
+  } catch (error) {
+    res.send(error);
+  }
+});
+// Add a transaction to a property
+// router.post('properties/:propertyId/transactions', async (req, res) => {
+//   try {
+//     const { propertyId } = req.params;
+//     console.log("prama",req.params)
+//     const transactionData = req.body;
+
+//     const property = await Propertydetail.findById(propertyId);
+
+//     if (!property) {
+//       return res.status(404).json({ error: 'Property not found' });
+//     }
+
+//     const transaction = new Transactiondetail(transactionData);
+//     property.transactions.push(transaction);
+//     await property.save();
+
+//     res.status(201).json(transaction);
+//   } catch (error) {
+//     console.error('Error adding transaction:', error);
+//     res.status(500).json({ error: 'Could not add transaction' });
+//   }
+// });
 
 // const User = mongoose.model('Infeet', userSchema);
 router.get("/", async (req, res) => {
@@ -89,28 +152,54 @@ router.post('/', upload.single('image'), async (req, res) => {
 });
 
 // add transaction
-router.post('/addtransaction', upload.single('image'), async (req, res) => {
-  const { amount, account, comments,balance } = req.body;
-
-console.log("req",req.body)
-
+router.post('/addtransaction/:propertyId/transactions', upload.single('image'), async (req, res) => {
+  const { amount, account, comments, balance } = req.body;
+  const { propertyId } = req.params;
   try {
-    const newTask = new Addtransaction({
-      amount: req.body.amount,
-      account: req.body.account,
-      date:req.body.date,
-      comments: req.body.comments,
-      balance: req.body.balance,
-      image: req.file.path, // Save the image path in your schema
-    });
-    await newTask.save();
+    const property = await Propertydetail.findById(propertyId);
+    if (!property) {
+      return res.status(404).json({ error: 'Property not found' });
+    }
+
+    const transaction = new Transactiondetail(
+      {
+        amount: req.body.amount,
+        account: req.body.account,
+        date: req.body.date,
+        comments: req.body.comments,
+        balance: req.body.balance,
+        image: req.file.path, // Save the image path in your schema
+      });
+    const transactionforapprove = new Transactionforapprovement(
+      {
+        amount: req.body.amount,
+        account: req.body.account,
+        date: req.body.date,
+        comments: req.body.comments,
+        balance: req.body.balance,
+        image: req.file.path, // Save the image path in your schema
+      });
+    console.log("transaction", transaction)
+    property.transactions.push(transaction);
+    await transactionforapprove.save();
+    await property.save();
+    // await newTask.save();
     res.status(201).json({ message: 'Add Transaction  successfully.' });
   } catch (error) {
     console.error('Error creating task:', error);
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
-
+//get  transaction for approvement
+router.get("/getapprovedtransaction", async (req, res) => {
+  try {
+    const tasks = await Transactionforapprovement.find();
+    // res.send(tasks);
+    res.status(200).json(tasks);
+  } catch (error) {
+    res.send(error);
+  }
+});
 //get transaction
 router.get("/gettransaction", async (req, res) => {
   try {
@@ -121,15 +210,47 @@ router.get("/gettransaction", async (req, res) => {
     res.send(error);
   }
 });
-// router.post("/", async (req, res) => {
-//   try {
-//     const task = await new Appartments(req.body).save();
-//     res.send(task);
-//   } catch (error) {
-//     res.send(error);
-//   }
-// });
+//Add All Transaction
+router.post("/addalltransactions", async (req, res) => {
+  try {
+    const dataArray = req.body;
 
+    // Check if any of the transactions already exist in the database
+    const existingTransactions = await AlltransactionsSchema.find({ transactions: { $in: dataArray } });
+
+    if (existingTransactions.length > 0) {
+      return res.status(400).json({ error: 'Some or all transactions already exist in the database' });
+    }
+
+    const newTransaction = new AlltransactionsSchema({
+      transactions: dataArray,
+    });
+    await newTransaction.save();
+    res.status(201).json(newTransaction);
+
+  } catch (error) {
+    console.error("Error saving data:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+//delete approved Transaction
+router.get('/deleteapprovedtransaction/:id', async (req, res) => {
+  try {
+    // Extract the ID from the URL parameter
+    const transactionId = req.params.id;
+    console.log("deleid", transactionId)
+    // Use Mongoose to find and delete the entry by ID
+    const deletedTransaction = await Transactionforapprovement.findOneAndDelete({ _id: transactionId });
+    console.log("deleitem", deletedTransaction)
+    if (!deletedTransaction) {
+      return res.status(404).json({ error: 'Transaction not found' });
+    }
+
+    res.status(200).json({ message: 'Transaction deleted', deletedTransaction });
+  } catch (error) {
+    res.status(500).json({ error: 'Could not delete the transaction' });
+  }
+});
 // Signup route
 router.post('/signup', (req, res) => {
   // Extract user data from request body
@@ -195,8 +316,8 @@ router.post('/login', (req, res) => {
   User.findOne({ email })
     .exec()
     .then((user) => {
-   if (!user) {
-     return res.status(404).json({ error: 'User not found' });
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
       }
 
       // Compare the password
@@ -204,12 +325,12 @@ router.post('/login', (req, res) => {
         .then((result) => {
           if (!result) {
             return res.status(401).json({ error: 'Invalid password' });
-   }
- 
-   // Generate a JWT token and send it as a response
-   const token = jwt.sign({ email: user.email }, 'secretkey');
-   res.status(200).json({ token });
-});
+          }
+
+          // Generate a JWT token and send it as a response
+          const token = jwt.sign({ email: user.email }, 'secretkey');
+          res.status(200).json({ token });
+        });
     })
     .catch((error) => {
       // Handle the error
@@ -221,10 +342,10 @@ router.post('/login', (req, res) => {
 //  password change
 router.post('/password-change', async (req, res) => {
   const { email, currentPassword, newPassword } = req.body;
-  console.log("pass",req.body)
- try {
+  console.log("pass", req.body)
+  try {
     // Find the user by ID (you should validate and sanitize the userId)
-    const user = await User.findOne({email});
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -246,6 +367,7 @@ router.post('/password-change', async (req, res) => {
     res.status(500).json({ message: 'Error changing password' });
   }
 });
+
 
 //  user profile data
 router.post('/profile', async (req, res) => {
@@ -279,6 +401,7 @@ router.post('/profile', async (req, res) => {
   }
 });
 
+
 //forgot password 
 router.post('/forgot-password', async (req, res) => {
   try {
@@ -310,8 +433,47 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-// app.listen(port, () => {
-//   console.log(`Server is running on port ${port}`);
-// });
+//  add managers
+router.post('/addmanager', async (req, res) => {
+  try {
+    const {
+      firstname,
+      lastname,
+      address,
+      idorpassport,
+      email,
+      password,
+
+    } = req.body;
+
+    // Create a new user document with the provided data
+    const manager = new Manager({
+      firstname,
+      lastname,
+      address,
+      idorpassport,
+      email,
+      password,
+    });
+
+    // Save the user document to MongoDB
+    await manager.save();
+
+    res.status(201).json({ message: 'Manager profile created  successfully' });
+  } catch (error) {
+    console.error('Error saving profile data:', error);
+    res.status(500).json({ message: 'Error saving profile data' });
+  }
+});
+//get All managers
+router.get("/getmanager", async (req, res) => {
+  try {
+    const managers = await Manager.find();
+    // res.send(tasks);
+    res.status(200).json(managers);
+  } catch (error) {
+    res.send(error);
+  }
+});
 
 module.exports = router;
