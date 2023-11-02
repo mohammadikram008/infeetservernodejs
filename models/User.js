@@ -14,14 +14,26 @@ userSchema.methods.comparePassword = function (password) {
   return bcrypt.compare(password, this.password);
 };
 const managerSchema = new mongoose.Schema({
+  // firstname: String,
+  // lastname: String,
+  // address: String,
+  // idorpassport: String,
+  // email: String,
+  // password: String,
+  email: String,
+  selectedProperties: [String],
+});
+const managerdetailSchema = new mongoose.Schema({
   firstname: String,
   lastname: String,
   address: String,
   idorpassport: String,
   email: String,
   password: String,
+
 });
 const User = mongoose.model('User', userSchema);
 const Manager = mongoose.model('Manager', managerSchema);
-module.exports = { User,Manager };
+const ManagerDetail = mongoose.model('Managerdetail', managerdetailSchema);
+module.exports = { User,Manager,ManagerDetail };
 // module.exports = mongoose.model('User', userSchema);

@@ -3,7 +3,7 @@ const tokenExpiration = '1h';
 const Appartments = require("./models/Appartment");
 const Addtransaction = require("./models/Addtransaction");
 const { Propertydetail, Transactiondetail, AlltransactionsSchema, Transactionforapprovement } = require('./models/property');
-const { User, Manager } = require("./models/User")
+const { User, Manager, ManagerDetail } = require("./models/User")
 const Userpassword = require("./models/User");
 const Verification = require('./models/Verification');
 //for send forgot passsword to email 
@@ -26,7 +26,7 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.use('/uploads', express.static('uploads'));
-
+const tokens = new Map();
 
 // Configure the email transporter
 const transporter = nodemailer.createTransport({
@@ -51,7 +51,6 @@ const myMiddleware = (req, res, next) => {
   // Middleware logic
   next(); // Call next() to pass control to the next middleware
 };
-
 
 //add property detail
 router.post('/properties', upload.single('image'), async (req, res) => {
@@ -88,6 +87,7 @@ router.post('/properties', upload.single('image'), async (req, res) => {
     res.status(500).json({ error: 'Could not create property' });
   }
 });
+
 //get property
 router.get("/properties", async (req, res) => {
   try {
@@ -98,6 +98,7 @@ router.get("/properties", async (req, res) => {
     res.send(error);
   }
 });
+
 // Add a transaction to a property
 // router.post('properties/:propertyId/transactions', async (req, res) => {
 //   try {
@@ -167,6 +168,8 @@ router.post('/addtransaction/:propertyId/transactions', upload.single('image'), 
         account: req.body.account,
         date: req.body.date,
         comments: req.body.comments,
+
+
         balance: req.body.balance,
         image: req.file.path, // Save the image path in your schema
       });
@@ -190,6 +193,7 @@ router.post('/addtransaction/:propertyId/transactions', upload.single('image'), 
     res.status(500).json({ message: 'Internal server error.' });
   }
 });
+
 //get  transaction for approvement
 router.get("/getapprovedtransaction", async (req, res) => {
   try {
@@ -200,6 +204,7 @@ router.get("/getapprovedtransaction", async (req, res) => {
     res.send(error);
   }
 });
+
 //get transaction
 router.get("/gettransaction", async (req, res) => {
   try {
@@ -210,6 +215,7 @@ router.get("/gettransaction", async (req, res) => {
     res.send(error);
   }
 });
+
 //Add All Transaction
 router.post("/addalltransactions", async (req, res) => {
   try {
@@ -233,24 +239,28 @@ router.post("/addalltransactions", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
 //delete approved Transaction
 router.get('/deleteapprovedtransaction/:id', async (req, res) => {
   try {
     // Extract the ID from the URL parameter
+    console.log("apid", req.params.id)
     const transactionId = req.params.id;
-    console.log("deleid", transactionId)
-    // Use Mongoose to find and delete the entry by ID
-    const deletedTransaction = await Transactionforapprovement.findOneAndDelete({ _id: transactionId });
-    console.log("deleitem", deletedTransaction)
-    if (!deletedTransaction) {
-      return res.status(404).json({ error: 'Transaction not found' });
-    }
+    const property = await Propertydetail.transactions.findOne(transactionId);
+    console.log("ap", property)
 
-    res.status(200).json({ message: 'Transaction deleted', deletedTransaction });
+    // const deletedTransaction = await Transactionforapprovement.findOneAndDelete({ _id: transactionId });
+    // console.log("deleitem", deletedTransaction)
+    // if (!deletedTransaction) {
+    //   return res.status(404).json({ error: 'Transaction not found' });
+    // }
+
+    // res.status(200).json({ message: 'Transaction deleted', deletedTransaction });
   } catch (error) {
     res.status(500).json({ error: 'Could not delete the transaction' });
   }
 });
+
 // Signup route
 router.post('/signup', (req, res) => {
   // Extract user data from request body
@@ -368,7 +378,6 @@ router.post('/password-change', async (req, res) => {
   }
 });
 
-
 //  user profile data
 router.post('/profile', async (req, res) => {
   try {
@@ -401,7 +410,6 @@ router.post('/profile', async (req, res) => {
   }
 });
 
-
 //forgot password 
 router.post('/forgot-password', async (req, res) => {
   try {
@@ -433,8 +441,70 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-//  add managers
+//  add managers email
 router.post('/addmanager', async (req, res) => {
+  try {
+    // const {
+    //   firstname,
+    //   lastname,
+    //   address,
+    //   idorpassport,
+    //   email,
+    //   password,
+
+    // } = req.body;
+    const { email, selectedProperties } = req.body;
+    // Generate a unique token for password reset
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // Store the token with the associated email in memory or a database
+    tokens.set(email, token);
+
+    // Send an email to the user with a link to reset their password
+    const resetLink = `http://yourwebsite.com/resetPassword?token=${token}`;
+    const mailOptions = {
+      from: 'mohammadikram20001@gmail.com',
+      to: email,
+      subject: 'Password Reset',
+      text: `Click the following link to reset your password: ${resetLink}`,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error('Error sending password reset email:', error);
+        res.status(500).json({ message: 'Email not sent' });
+      } else {
+        const manager = new Manager({
+
+          email, selectedProperties
+        });
+
+        // Save the user document to MongoDB
+        manager.save();
+        console.log('Password reset email sent:', info.response);
+        res.status(200).json({ message: 'Email sent successfully' });
+      }
+    });
+    // Create a new user document with the provided data
+
+  } catch (error) {
+    console.error('Error saving profile data:', error);
+    res.status(500).json({ message: 'Error saving profile data' });
+  }
+});
+
+//get All managers
+router.get("/getmanager", async (req, res) => {
+  try {
+    const managers = await ManagerDetail.find();
+    // res.send(tasks);
+    res.status(200).json(managers);
+  } catch (error) {
+    res.send(error);
+  }
+});
+//save manager profile
+router.post('/addmanagerdetail', async (req, res) => {
   try {
     const {
       firstname,
@@ -443,11 +513,9 @@ router.post('/addmanager', async (req, res) => {
       idorpassport,
       email,
       password,
-
     } = req.body;
 
-    // Create a new user document with the provided data
-    const manager = new Manager({
+    const manager = new ManagerDetail({
       firstname,
       lastname,
       address,
@@ -458,21 +526,11 @@ router.post('/addmanager', async (req, res) => {
 
     // Save the user document to MongoDB
     await manager.save();
+    res.status(200).json({ message: 'Manager Save Successfully' });
 
-    res.status(201).json({ message: 'Manager profile created  successfully' });
   } catch (error) {
     console.error('Error saving profile data:', error);
     res.status(500).json({ message: 'Error saving profile data' });
-  }
-});
-//get All managers
-router.get("/getmanager", async (req, res) => {
-  try {
-    const managers = await Manager.find();
-    // res.send(tasks);
-    res.status(200).json(managers);
-  } catch (error) {
-    res.send(error);
   }
 });
 
