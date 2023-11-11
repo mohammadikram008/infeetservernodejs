@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 
 const transactionSchema = new mongoose.Schema({
+  id:String,
   amount: String,
   account: String,
   date: String,
@@ -10,6 +11,7 @@ const transactionSchema = new mongoose.Schema({
   image: String,
 });
 const transactionforapproved = new mongoose.Schema({
+  id:String,
   amount: String,
   account: String,
   date: String,
@@ -30,7 +32,8 @@ const propertySchema = new mongoose.Schema({
 });
 
 const alltransactionsSchema=new mongoose.Schema({
-  transactions: [transactionSchema],
+  id:String
+  // transactions: [transactionSchema],
 })
 
 const Propertydetail = mongoose.model('Propertydetail', propertySchema);

@@ -152,29 +152,114 @@ router.post('/', upload.single('image'), async (req, res) => {
   }
 });
 
+//delete approved Transaction
+router.post('/deleteapprovedtransaction/:id', upload.single('image'), async (req, res) => {
+  try {
+    // Extract the ID from the URL parameter
+    const transactionId = req.params.id;
+    const id = req.body._id
+    try {
+      const property = await Propertydetail.findById(transactionId);
+      console.log("property", property)
+      if (!property) {
+        return res.status(404).json({ error: 'Property not found' });
+      }
+
+      const transaction = new Transactiondetail(
+        {
+          id: req.body.id,
+          amount: req.body.amount,
+          account: req.body.account,
+          date: req.body.date,
+          comments: req.body.comments,
+          balance: req.body.balance,
+          image: req.body.image, // Save the image path in your schema
+        });
+
+      property.transactions.push(transaction);
+      await property.save();
+      const deletedTransaction = await Transactionforapprovement.findOneAndDelete({ _id: id });
+
+      if (!deletedTransaction) {
+        return res.status(404).json({ error: 'Transaction not found' });
+      }
+
+      res.status(200).json({ message: 'Transaction deleted', deletedTransaction });
+
+    } catch (error) {
+
+      res.status(500).json({ message: 'Internal server error.' });
+    }
+    // const transactionId = req.params.id;
+    // // const property = await Propertydetail.transactions.findOne(transactionId);
+    // // console.log("ap", property)
+
+    // const deletedTransaction = await Transactionforapprovement.findOneAndDelete({ _id: transactionId });
+
+    // if (!deletedTransaction) {
+    //   return res.status(404).json({ error: 'Transaction not found' });
+    // }
+
+    // res.status(200).json({ message: 'Transaction deleted', deletedTransaction });
+  } catch (error) {
+    res.status(500).json({ error: 'Could not delete the transaction' });
+  }
+});
+// get  all transaction through id
+router.post('/getallapp', upload.single('image'), async (req, res) => {
+
+  const { propertyId } = req.body;
+  console.log("id",propertyId)
+  try {
+    // const property = await Propertydetail.findById(propertyId);
+    // if (!property) {
+    //   return res.status(404).json({ error: 'Property not found' });
+    // }
+    // console.log("property",property)
+    // res.status(200).json(property);
+    // const transaction = new Transactiondetail(
+    //   {
+    //     id: req.body.id,
+    //     amount: req.body.amount,
+    //     account: req.body.account,
+    //     date: req.body.date,
+    //     comments: req.body.comments,
+    //     balance: req.body.balance,
+    //     image: req.file.path, // Save the image path in your schema
+    //   });
+    // const transactionforapprove = new Transactionforapprovement(
+    //   {
+    //     id: req.body.id,
+    //     amount: req.body.amount,
+    //     account: req.body.account,
+    //     date: req.body.date,
+    //     comments: req.body.comments,
+    //     balance: req.body.balance,
+    //     image: req.file.path, // Save the image path in your schema
+    //   });
+    // console.log("transaction", transaction)
+    // property.transactions.push(transaction);
+    // await transactionforapprove.save();
+    // await property.save();
+    // await newTask.save();
+    // res.status(201).json({ message: 'Add Transaction  successfully.' });
+  } catch (error) {
+    console.error('Error creating task:', error);
+    res.status(500).json({ message: 'Internal server error.' });
+  }
+});
 // add transaction
 router.post('/addtransaction/:propertyId/transactions', upload.single('image'), async (req, res) => {
-  const { amount, account, comments, balance } = req.body;
+
   const { propertyId } = req.params;
   try {
     const property = await Propertydetail.findById(propertyId);
     if (!property) {
       return res.status(404).json({ error: 'Property not found' });
     }
-
     const transaction = new Transactiondetail(
       {
-        amount: req.body.amount,
-        account: req.body.account,
-        date: req.body.date,
-        comments: req.body.comments,
-
-
-        balance: req.body.balance,
-        image: req.file.path, // Save the image path in your schema
-      });
-    const transactionforapprove = new Transactionforapprovement(
-      {
+        id: req.body.id,
         amount: req.body.amount,
         account: req.body.account,
         date: req.body.date,
@@ -182,9 +267,19 @@ router.post('/addtransaction/:propertyId/transactions', upload.single('image'), 
         balance: req.body.balance,
         image: req.file.path, // Save the image path in your schema
       });
-    console.log("transaction", transaction)
+    // const transactionforapprove = new Transactionforapprovement(
+    //   {
+    //     id: req.body.id,
+    //     amount: req.body.amount,
+    //     account: req.body.account,
+    //     date: req.body.date,
+    //     comments: req.body.comments,
+    //     balance: req.body.balance,
+    //     image: req.file.path, // Save the image path in your schema
+    //   });
+    // console.log("transaction", transaction)
     property.transactions.push(transaction);
-    await transactionforapprove.save();
+    // await transactionforapprove.save();
     await property.save();
     // await newTask.save();
     res.status(201).json({ message: 'Add Transaction  successfully.' });
@@ -197,9 +292,27 @@ router.post('/addtransaction/:propertyId/transactions', upload.single('image'), 
 //get  transaction for approvement
 router.get("/getapprovedtransaction", async (req, res) => {
   try {
-    const tasks = await Transactionforapprovement.find();
+    // const tasks = await Transactionforapprovement.find();
+    const transactions = await AlltransactionsSchema.find();
     // res.send(tasks);
-    res.status(200).json(tasks);
+    console.log("transactions",transactions)
+    const propertyDetails = [];
+
+  for (const transaction of transactions) {
+    console.log("transaction",transaction)
+    const propertyId = transaction.id;
+    // Search for property details using the property ID
+    const propertyDetail = await Propertydetail.findOne({ _id: propertyId });
+    console.log("propertyDetail",propertyDetail)
+    if (propertyDetail) {
+      // Add the property details to the result array
+      propertyDetails.push(propertyDetail);
+    }
+  }
+
+//  console.log("AllTransactions",propertyDetails)
+  res.status(200).json(propertyDetails);
+   
   } catch (error) {
     res.send(error);
   }
@@ -219,17 +332,18 @@ router.get("/gettransaction", async (req, res) => {
 //Add All Transaction
 router.post("/addalltransactions", async (req, res) => {
   try {
-    const dataArray = req.body;
-
+    // const dataArray = req.body;
+    const id = req.body._id;
+    console.log("id", req.body._id);
     // Check if any of the transactions already exist in the database
-    const existingTransactions = await AlltransactionsSchema.find({ transactions: { $in: dataArray } });
+    // const existingTransactions = await AlltransactionsSchema.find({ transactions: { $in: dataArray } });
 
-    if (existingTransactions.length > 0) {
-      return res.status(400).json({ error: 'Some or all transactions already exist in the database' });
-    }
+    // if (existingTransactions.length > 0) {
+    //   return res.status(400).json({ error: 'Some or all transactions already exist in the database' });
+    // }
 
     const newTransaction = new AlltransactionsSchema({
-      transactions: dataArray,
+      id:id
     });
     await newTransaction.save();
     res.status(201).json(newTransaction);
@@ -240,26 +354,6 @@ router.post("/addalltransactions", async (req, res) => {
   }
 });
 
-//delete approved Transaction
-router.get('/deleteapprovedtransaction/:id', async (req, res) => {
-  try {
-    // Extract the ID from the URL parameter
-    console.log("apid", req.params.id)
-    const transactionId = req.params.id;
-    const property = await Propertydetail.transactions.findOne(transactionId);
-    console.log("ap", property)
-
-    // const deletedTransaction = await Transactionforapprovement.findOneAndDelete({ _id: transactionId });
-    // console.log("deleitem", deletedTransaction)
-    // if (!deletedTransaction) {
-    //   return res.status(404).json({ error: 'Transaction not found' });
-    // }
-
-    // res.status(200).json({ message: 'Transaction deleted', deletedTransaction });
-  } catch (error) {
-    res.status(500).json({ error: 'Could not delete the transaction' });
-  }
-});
 
 // Signup route
 router.post('/signup', (req, res) => {
@@ -531,6 +625,97 @@ router.post('/addmanagerdetail', async (req, res) => {
   } catch (error) {
     console.error('Error saving profile data:', error);
     res.status(500).json({ message: 'Error saving profile data' });
+  }
+});
+//update specific transactions
+router.put('/properties/:propertyId/transactions/:transactionId', upload.single('image'),async (req, res) => {
+  const { propertyId, transactionId } = req.params;
+  const { amount, account, date, comments, balance, image } = req.body;
+console.log("image",image)
+  try {
+    // Find the property by ID
+    const property = await Propertydetail.findById(propertyId);
+
+    if (!property) {
+      return res.status(404).json({ message: 'Property not found' });
+    }
+
+    // Find the transaction within the transactions array
+    const transaction = property.transactions.find(
+      (transaction) => transaction._id.toString() === transactionId
+    );
+
+    // Check if the transaction exists
+    if (!transaction) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    // Update the transaction details
+    transaction.amount = amount;
+    transaction.account = account;
+    transaction.date = date;
+    transaction.comments = comments;
+    transaction.balance = balance;
+    transaction.image = image;
+
+    // Save the updated property to the database
+    await property.save();
+
+    res.json({ message: 'Transaction updated successfully', transaction });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+//delete un aproved transaction
+router.delete('/deleteunapprovedtransaction/:id', async (req, res) => {
+  try {
+    const { transactionId } = req.params.id;
+    console.log(req.params)
+    // Find and delete the transaction by ID
+    const deletedTransaction = await Transactionforapprovement.findByIdAndDelete({ _id: req.params.id });
+    console.log("deletedTransaction", deletedTransaction)
+    if (!deletedTransaction) {
+      return res.status(404).json({ error: 'Transaction not found.' });
+    }
+
+    return res.status(200).json({ message: 'Transaction deleted successfully.' });
+  } catch (error) {
+    return res.status(500).json({ error: 'Error deleting the transaction.' });
+  }
+});
+//delete transaction from prperty
+router.delete('/properties/:propertyId/transactions/:transactionId', async (req, res) => {
+  const { propertyId, transactionId } = req.params;
+  
+  try {
+    // Find the property by ID
+    const property = await Propertydetail.findById(propertyId);
+
+    if (!property) {
+      return res.status(404).json({ message: 'Property not found' });
+    }
+
+    // Find the index of the transaction within the transactions array
+    const transactionIndex = property.transactions.findIndex(
+      (transaction) => transaction._id.toString() === transactionId
+    );
+
+    // Check if the transaction exists
+    if (transactionIndex === -1) {
+      return res.status(404).json({ message: 'Transaction not found' });
+    }
+
+    // Remove the transaction from the array
+    property.transactions.splice(transactionIndex, 1);
+
+    // Save the updated property to the database
+    await property.save();
+
+    res.json({ message: 'Transaction deleted successfully' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
