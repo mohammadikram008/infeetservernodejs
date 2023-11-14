@@ -3,7 +3,7 @@ const tokenExpiration = '1h';
 const Appartments = require("./models/Appartment");
 const Addtransaction = require("./models/Addtransaction");
 const { Propertydetail, Transactiondetail, AlltransactionsSchema, Transactionforapprovement } = require('./models/property');
-const { User, Manager, ManagerDetail } = require("./models/User")
+const { User, Manager, ManagerDetail, managerEmails } = require("./models/User")
 const Userpassword = require("./models/User");
 const Verification = require('./models/Verification');
 //for send forgot passsword to email 
@@ -209,7 +209,7 @@ router.post('/deleteapprovedtransaction/:id', upload.single('image'), async (req
 router.post('/getallapp', upload.single('image'), async (req, res) => {
 
   const { propertyId } = req.body;
-  console.log("id",propertyId)
+  console.log("id", propertyId)
   try {
     // const property = await Propertydetail.findById(propertyId);
     // if (!property) {
@@ -295,24 +295,24 @@ router.get("/getapprovedtransaction", async (req, res) => {
     // const tasks = await Transactionforapprovement.find();
     const transactions = await AlltransactionsSchema.find();
     // res.send(tasks);
-    console.log("transactions",transactions)
+
     const propertyDetails = [];
 
-  for (const transaction of transactions) {
-    console.log("transaction",transaction)
-    const propertyId = transaction.id;
-    // Search for property details using the property ID
-    const propertyDetail = await Propertydetail.findOne({ _id: propertyId });
-    console.log("propertyDetail",propertyDetail)
-    if (propertyDetail) {
-      // Add the property details to the result array
-      propertyDetails.push(propertyDetail);
-    }
-  }
+    for (const transaction of transactions) {
 
-//  console.log("AllTransactions",propertyDetails)
-  res.status(200).json(propertyDetails);
-   
+      const propertyId = transaction.id;
+      // Search for property details using the property ID
+      const propertyDetail = await Propertydetail.findOne({ _id: propertyId });
+
+      if (propertyDetail) {
+        // Add the property details to the result array
+        propertyDetails.push(propertyDetail);
+      }
+    }
+
+    //  console.log("AllTransactions",propertyDetails)
+    res.status(200).json(propertyDetails);
+
   } catch (error) {
     res.send(error);
   }
@@ -343,7 +343,7 @@ router.post("/addalltransactions", async (req, res) => {
     // }
 
     const newTransaction = new AlltransactionsSchema({
-      id:id
+      id: id
     });
     await newTransaction.save();
     res.status(201).json(newTransaction);
@@ -627,11 +627,45 @@ router.post('/addmanagerdetail', async (req, res) => {
     res.status(500).json({ message: 'Error saving profile data' });
   }
 });
+//save  manager emails
+router.post('/addmanageremail', async (req, res) => {
+  try {
+    const {
+
+      email,
+
+    } = req.body;
+
+    const manager = new managerEmails({
+
+      email,
+
+    });
+
+    // Save the user document to MongoDB
+    await manager.save();
+    res.status(200).json({ message: 'Manager Email Save Successfully' });
+
+  } catch (error) {
+    console.error('Error saving profile data:', error);
+    res.status(500).json({ message: 'Error saving profile data' });
+  }
+});
+//get All managers emails
+router.get("/getmanageremails", async (req, res) => {
+  try {
+    const managers = await managerEmails.find();
+    // res.send(tasks);
+    res.status(200).json(managers);
+  } catch (error) {
+    res.send(error);
+  }
+});
 //update specific transactions
-router.put('/properties/:propertyId/transactions/:transactionId', upload.single('image'),async (req, res) => {
+router.put('/properties/:propertyId/transactions/:transactionId', upload.single('image'), async (req, res) => {
   const { propertyId, transactionId } = req.params;
   const { amount, account, date, comments, balance, image } = req.body;
-console.log("image",image)
+
   try {
     // Find the property by ID
     const property = await Propertydetail.findById(propertyId);
@@ -671,10 +705,10 @@ console.log("image",image)
 router.delete('/deleteunapprovedtransaction/:id', async (req, res) => {
   try {
     const { transactionId } = req.params.id;
-    console.log(req.params)
+    console.log("tra", transactionId)
     // Find and delete the transaction by ID
     const deletedTransaction = await Transactionforapprovement.findByIdAndDelete({ _id: req.params.id });
-    console.log("deletedTransaction", deletedTransaction)
+
     if (!deletedTransaction) {
       return res.status(404).json({ error: 'Transaction not found.' });
     }
@@ -687,7 +721,7 @@ router.delete('/deleteunapprovedtransaction/:id', async (req, res) => {
 //delete transaction from prperty
 router.delete('/properties/:propertyId/transactions/:transactionId', async (req, res) => {
   const { propertyId, transactionId } = req.params;
-  
+
   try {
     // Find the property by ID
     const property = await Propertydetail.findById(propertyId);

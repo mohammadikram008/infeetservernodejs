@@ -23,6 +23,11 @@ const managerSchema = new mongoose.Schema({
   email: String,
   selectedProperties: [String],
 });
+const managerEmail = new mongoose.Schema({
+  
+  email: String,
+  
+});
 const managerdetailSchema = new mongoose.Schema({
   firstname: String,
   lastname: String,
@@ -34,6 +39,7 @@ const managerdetailSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', userSchema);
 const Manager = mongoose.model('Manager', managerSchema);
+const managerEmails = mongoose.model('managerEmail', managerEmail);
 const ManagerDetail = mongoose.model('Managerdetail', managerdetailSchema);
-module.exports = { User,Manager,ManagerDetail };
+module.exports = { User,Manager,ManagerDetail,managerEmails };
 // module.exports = mongoose.model('User', userSchema);
