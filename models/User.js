@@ -24,9 +24,9 @@ const managerSchema = new mongoose.Schema({
   selectedProperties: [String],
 });
 const managerEmail = new mongoose.Schema({
-  
+
   email: String,
-  
+
 });
 const managerdetailSchema = new mongoose.Schema({
   firstname: String,
@@ -37,9 +37,28 @@ const managerdetailSchema = new mongoose.Schema({
   password: String,
 
 });
+const agentprofiledetailSchema = new mongoose.Schema({
+  firstname: String,
+  lastname: String,
+  address: String,
+  idorpassport: String,
+  email: String,
+  password: String,
+  salecode: String,
+  commission: String,
+});
+const agentcommissiondetailSchema = new mongoose.Schema({
+  id: String,
+  fullname: String,
+  salecode: String,
+  commission: String,
+
+});
 const User = mongoose.model('User', userSchema);
-const Manager = mongoose.model('Manager', managerSchema);
+const Manager = mongoose.model('ManagerAccessproperties', managerSchema);
 const managerEmails = mongoose.model('managerEmail', managerEmail);
 const ManagerDetail = mongoose.model('Managerdetail', managerdetailSchema);
-module.exports = { User,Manager,ManagerDetail,managerEmails };
+const agentprofiledetail = mongoose.model('agentprofiledetail', agentprofiledetailSchema);
+const agentcommissiondetail = mongoose.model('agentcommissiondetail', agentcommissiondetailSchema);
+module.exports = { User, Manager, ManagerDetail, managerEmails, agentprofiledetail, agentcommissiondetail };
 // module.exports = mongoose.model('User', userSchema);

@@ -30,6 +30,16 @@ const propertySchema = new mongoose.Schema({
   image:String,
   transactions: [transactionSchema],
 });
+const ApprovedAlltransactionProperty = new mongoose.Schema({
+  name: String,
+  address: String,
+  city: String,
+  country: String,
+  propertytype: String,
+  price: String,
+  image:String,
+  transactions: [transactionSchema],
+});
 
 const alltransactionsSchema=new mongoose.Schema({
   id:String
@@ -40,4 +50,5 @@ const Propertydetail = mongoose.model('Propertydetail', propertySchema);
 const Transactiondetail = mongoose.model('Transactiondetail', transactionSchema);
 const AlltransactionsSchema = mongoose.model('AllTransactiondetail', alltransactionsSchema);
 const Transactionforapprovement = mongoose.model('transactionforapproved', transactionforapproved);
-module.exports = { Propertydetail,Transactiondetail,AlltransactionsSchema,Transactionforapprovement };
+const ApprovedAlltransactionProperties = mongoose.model('ApprovedAlltransactionProperty', ApprovedAlltransactionProperty);
+module.exports = { Propertydetail,Transactiondetail,AlltransactionsSchema,Transactionforapprovement,ApprovedAlltransactionProperties };

@@ -2,8 +2,8 @@ const bcrypt = require('bcrypt');
 const tokenExpiration = '1h';
 const Appartments = require("./models/Appartment");
 const Addtransaction = require("./models/Addtransaction");
-const { Propertydetail, Transactiondetail, AlltransactionsSchema, Transactionforapprovement } = require('./models/property');
-const { User, Manager, ManagerDetail, managerEmails } = require("./models/User")
+const { Propertydetail, Transactiondetail, AlltransactionsSchema, Transactionforapprovement, ApprovedAlltransactionProperties } = require('./models/property');
+const { User, Manager, ManagerDetail, managerEmails,agentprofiledetail,agentcommissiondetail } = require("./models/User")
 const Userpassword = require("./models/User");
 const Verification = require('./models/Verification');
 //for send forgot passsword to email 
@@ -98,6 +98,21 @@ router.get("/properties", async (req, res) => {
     res.send(error);
   }
 });
+//get property byb id
+router.get("/properties/:id", async (req, res) => {
+  try {
+    const propertyId = req.params.id;
+    const property = await Propertydetail.findById(propertyId);
+    console.log("property", property)
+    if (!property) {
+      return res.status(404).json({ message: "Property not found" });
+    }
+
+    res.status(200).json(property);
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // Add a transaction to a property
 // router.post('properties/:propertyId/transactions', async (req, res) => {
@@ -155,52 +170,40 @@ router.post('/', upload.single('image'), async (req, res) => {
 //delete approved Transaction
 router.post('/deleteapprovedtransaction/:id', upload.single('image'), async (req, res) => {
   try {
-    // Extract the ID from the URL parameter
-    const transactionId = req.params.id;
-    const id = req.body._id
+    const id = req.params.id;
+
     try {
-      const property = await Propertydetail.findById(transactionId);
-      console.log("property", property)
+      const property = await Propertydetail.findById(id);
+
       if (!property) {
         return res.status(404).json({ error: 'Property not found' });
       }
 
-      const transaction = new Transactiondetail(
-        {
-          id: req.body.id,
-          amount: req.body.amount,
-          account: req.body.account,
-          date: req.body.date,
-          comments: req.body.comments,
-          balance: req.body.balance,
-          image: req.body.image, // Save the image path in your schema
-        });
 
-      property.transactions.push(transaction);
-      await property.save();
-      const deletedTransaction = await Transactionforapprovement.findOneAndDelete({ _id: id });
+      const approvedProperty = new ApprovedAlltransactionProperties({
+        // Assign the properties of the retrieved property to the new instance
+        // Modify this part according to your schema structure
+        name: property.name,
+        address: property.address,
+        city: property.city,
+        country: property.country,
+        propertytype: property.propertytype,
+        price: property.price,
+        transactions: property.transactions, // Copy transactions array or reference
+        // Add other properties as needed
+      });
+
+      // Save the new instance to the ApprovedAlltransactionProperty collection
+      await approvedProperty.save();
+      const deletedTransaction = await AlltransactionsSchema.findOneAndDelete({ id: id });
 
       if (!deletedTransaction) {
         return res.status(404).json({ error: 'Transaction not found' });
       }
-
-      res.status(200).json({ message: 'Transaction deleted', deletedTransaction });
-
+      res.status(200).json({ message: 'Property saved to ApprovedAlltransactionProperty', approvedProperty });
     } catch (error) {
-
       res.status(500).json({ message: 'Internal server error.' });
     }
-    // const transactionId = req.params.id;
-    // // const property = await Propertydetail.transactions.findOne(transactionId);
-    // // console.log("ap", property)
-
-    // const deletedTransaction = await Transactionforapprovement.findOneAndDelete({ _id: transactionId });
-
-    // if (!deletedTransaction) {
-    //   return res.status(404).json({ error: 'Transaction not found' });
-    // }
-
-    // res.status(200).json({ message: 'Transaction deleted', deletedTransaction });
   } catch (error) {
     res.status(500).json({ error: 'Could not delete the transaction' });
   }
@@ -538,55 +541,118 @@ router.post('/forgot-password', async (req, res) => {
 //  add managers email
 router.post('/addmanager', async (req, res) => {
   try {
-    // const {
-    //   firstname,
-    //   lastname,
-    //   address,
-    //   idorpassport,
-    //   email,
-    //   password,
 
-    // } = req.body;
     const { email, selectedProperties } = req.body;
+    // Check if the manager already exists
+    const existingManager = await Manager.findOne({ email });
+
+    if (existingManager) {
+      // Update the selected properties for the existing manager
+      existingManager.selectedProperties = existingManager.selectedProperties.filter(
+        (prop) => selectedProperties.includes(prop)
+      );
+      // Add any new properties to the existing manager's selection
+      selectedProperties.forEach((prop) => {
+        if (!existingManager.selectedProperties.includes(prop)) {
+          existingManager.selectedProperties.push(prop);
+        }
+      });
+      await existingManager.save();
+      return res.status(200).json('Manager properties updated successfully');
+    }
     // Generate a unique token for password reset
-    const token = crypto.randomBytes(32).toString('hex');
+    // const token = crypto.randomBytes(32).toString('hex');
 
     // Store the token with the associated email in memory or a database
-    tokens.set(email, token);
+    // tokens.set(email, token);
 
     // Send an email to the user with a link to reset their password
-    const resetLink = `http://yourwebsite.com/resetPassword?token=${token}`;
-    const mailOptions = {
-      from: 'mohammadikram20001@gmail.com',
-      to: email,
-      subject: 'Password Reset',
-      text: `Click the following link to reset your password: ${resetLink}`,
-    };
+    // const resetLink = `http://managerformacces/resetPassword?token=${token}`;
+    // const mailOptions = {
+    //   from: 'mohammadikram20001@gmail.com',
+    //   to: email,
+    //   subject: 'Create Profile',
+    //   text: `Click the following link to Create Your Profile: ${resetLink}`,
+    // };
 
-    transporter.sendMail(mailOptions, (error, info) => {
-      if (error) {
-        console.error('Error sending password reset email:', error);
-        res.status(500).json({ message: 'Email not sent' });
-      } else {
-        const manager = new Manager({
+    // transporter.sendMail(mailOptions, (error, info) => {
+    //   if (error) {
+    //     console.error('Error sending password reset email:', error);
+    //     res.status(500).json({ message: 'Email not sent' });
+    //   } else {
+    //     const manager = new Manager({
 
-          email, selectedProperties
-        });
+    //       email, selectedProperties
+    //     });
 
-        // Save the user document to MongoDB
-        manager.save();
-        console.log('Password reset email sent:', info.response);
-        res.status(200).json({ message: 'Email sent successfully' });
-      }
-    });
+    //     // Save the user document to MongoDB
+    //     manager.save();
+    //     console.log('Password reset email sent:', info.response);
+    //     res.status(200).json({ message: 'Email sent successfully' });
+    //   }
+    // });
     // Create a new user document with the provided data
+    const manager = new Manager({
+      email, selectedProperties
+    });
 
+    // // Save the user document to MongoDB
+    manager.save();
+
+    res.status(200).json('Manager access property save  successfully');
   } catch (error) {
     console.error('Error saving profile data:', error);
     res.status(500).json({ message: 'Error saving profile data' });
   }
 });
+// get all managers access property
+router.get('/getallmanagersaccessproperties', async (req, res) => {
+  try {
+    const allManagers = await Manager.find(); // Retrieve all managers
 
+    res.status(200).json({ message: 'All managers retrieved successfully', allManagers });
+  } catch (error) {
+    console.error('Error fetching all managers:', error);
+    res.status(500).json({ message: 'Error fetching all managers' });
+  }
+});
+
+//mananger access properties from email and show checkbox
+router.get('/getsinglemanageraccessproperties/:email', async (req, res) => {
+  try {
+    const { email } = req.params;
+
+    // Assuming your Manager model/schema is used to query the database
+    const manager = await Manager.findOne({ email });
+
+    if (!manager) {
+      return res.status(404).json({ message: 'Manager not found' });
+    }
+
+    res.status(200).json({ message: 'Manager data retrieved successfully', manager });
+  } catch (error) {
+    console.error('Error fetching manager data:', error);
+    res.status(500).json({ message: 'Error fetching manager data' });
+  }
+});
+//  get properties from manageraccessproperties id's from proprertydeatail table
+router.post('/getmanageraccessallproperties', async (req, res) => {
+  try {
+    const { propertyIds } = req.body; // Array of property IDs
+
+    // Find properties by the provided IDs
+    const properties = await Propertydetail.find({ _id: { $in: propertyIds } });
+
+    if (!properties || properties.length === 0) {
+      return res.status(404).json({ message: 'No properties found for the given IDs' });
+    }
+
+    res.status(200).json({ message: 'Properties found', properties });
+  } catch (error) {
+    console.error('Error fetching properties by IDs:', error);
+    res.status(500).json({ message: 'Error fetching properties by IDs' });
+  }
+});
 //get All managers
 router.get("/getmanager", async (req, res) => {
   try {
@@ -627,6 +693,7 @@ router.post('/addmanagerdetail', async (req, res) => {
     res.status(500).json({ message: 'Error saving profile data' });
   }
 });
+
 //save  manager emails
 router.post('/addmanageremail', async (req, res) => {
   try {
@@ -661,11 +728,126 @@ router.get("/getmanageremails", async (req, res) => {
     res.send(error);
   }
 });
+//save agent profile details
+router.post('/addagentprofiledetail', async (req, res) => {
+  try {
+    const {
+      firstname,
+      lastname,
+      address,
+      idorpassport,
+      email,
+      password,
+      salecode,
+      commission
+    } = req.body;
+
+    const manager = new agentprofiledetail({
+      firstname,
+      lastname,
+      address,
+      idorpassport,
+      email,
+      password,
+      salecode,
+      commission
+    });
+
+    // Save the user document to MongoDB
+    await manager.save();
+    res.status(200).json( 'Agent Save Successfully' );
+
+  } catch (error) {
+    console.error('Error saving profile data:', error);
+    res.status(500).json('Error saving profile data' );
+  }
+});
+//get All agent profile detail 
+router.get("/getagentprofiledetail", async (req, res) => {
+  try {
+    const agents = await agentprofiledetail.find();
+    // res.send(tasks);
+    res.status(200).json(agents);
+  } catch (error) {
+    res.send(error);
+  }
+});
+
+//add agent commission detail
+router.post('/agents/:id', async (req, res) => {
+  const { id } = req.params;
+  const { commission } = req.body;
+console.log("call");
+  try {
+    const agent = await agentprofiledetail.findById(id);
+    if (!agent) {
+      return res.status(404).json({ message: 'Agent not found' });
+    }
+
+    agent.commission = commission; // Assuming 'commission' is a field in the Agent schema
+    await agent.save();
+
+    res.json({ message: 'Commission saved successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error saving commission' });
+  }
+});
+//  add sale agent and send email
+router.post('/addsalegent', async (req, res) => {
+  try {
+    // const {
+    //   firstname,
+    //   lastname,
+    //   address,
+    //   idorpassport,
+    //   email,
+    //   password,
+
+    // } = req.body;
+    const { email } = req.body;
+    // Generate a unique token for password reset
+    const token = crypto.randomBytes(32).toString('hex');
+
+    // Store the token with the associated email in memory or a database
+    tokens.set(email, token);
+
+    // Send an email to the user with a link to reset their password
+    const resetLink = `http://managerformacces/resetPassword?token=${token}`;
+    const mailOptions = {
+      from: 'mohammadikram20001@gmail.com',
+      to: email,
+      subject: 'Create Profile',
+      text: `Click the following link to Create Your Profile: ${resetLink}`,
+    };
+
+    transporter.sendMail(mailOptions, (error, info) => {
+      if (error) {
+        console.error('Error sending password reset email:', error);
+        res.status(500).json({ message: 'Email not sent' });
+      } else {
+        const manager = new Manager({
+
+          email, selectedProperties
+        });
+
+        // Save the user document to MongoDB
+        manager.save();
+        console.log('Password reset email sent:', info.response);
+        res.status(200).json({ message: 'Email sent successfully' });
+      }
+    });
+    // Create a new user document with the provided data
+
+  } catch (error) {
+    console.error('Error saving profile data:', error);
+    res.status(500).json({ message: 'Error saving profile data' });
+  }
+});
 //update specific transactions
 router.put('/properties/:propertyId/transactions/:transactionId', upload.single('image'), async (req, res) => {
   const { propertyId, transactionId } = req.params;
   const { amount, account, date, comments, balance, image } = req.body;
-
+  console.log("image", image)
   try {
     // Find the property by ID
     const property = await Propertydetail.findById(propertyId);
@@ -690,7 +872,13 @@ router.put('/properties/:propertyId/transactions/:transactionId', upload.single(
     transaction.date = date;
     transaction.comments = comments;
     transaction.balance = balance;
-    transaction.image = image;
+    if (image) {
+
+      transaction.image = image;
+    } else {
+      transaction.image = req.file.path;
+    }
+
 
     // Save the updated property to the database
     await property.save();
