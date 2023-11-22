@@ -773,11 +773,11 @@ router.get("/getagentprofiledetail", async (req, res) => {
   }
 });
 
-//add agent commission detail
+//add single agent commission 
 router.post('/agents/:id', async (req, res) => {
   const { id } = req.params;
-  const { commission } = req.body;
-console.log("call");
+  const  {commission}  = req.body;
+  console.log("id",id);
   try {
     const agent = await agentprofiledetail.findById(id);
     if (!agent) {
@@ -787,9 +787,30 @@ console.log("call");
     agent.commission = commission; // Assuming 'commission' is a field in the Agent schema
     await agent.save();
 
-    res.json({ message: 'Commission saved successfully' });
+    res.json('Commission saved successfully' );
   } catch (error) {
-    res.status(500).json({ message: 'Error saving commission' });
+    res.status(500).json( 'Error saving commission' );
+  }
+});
+//add all agents commission
+router.post('/applyall', async (req, res) => {
+  const { commission } = req.body;
+  console.log("commission",commission);
+  try {
+
+    // Fetch all agents from the database
+    const agents = await agentprofiledetail.find();
+
+    // Apply the commission to all fetched agents
+    for (const agent of agents) {
+      agent.commission = commission; // Set the commission for each agent
+      await agent.save(); // Save the updated commission
+    }
+
+    res.status(200).json('Commission applied to all agents');
+  } catch (error) {
+    console.error('Error applying commission to all agents:', error);
+    res.status(500).json('Error applying commission to all agents');
   }
 });
 //  add sale agent and send email
